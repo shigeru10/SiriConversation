@@ -10,10 +10,11 @@ import Foundation
 import RealmSwift
 
 class Word: Object {
+    dynamic var id = 0
+    dynamic var question = ""
+    dynamic var answer = ""
     
-// Specify properties to ignore (Realm won't persist these)
-    
-//  override static func ignoredProperties() -> [String] {
-//    return []
-//  }
+    override static func primaryKey() -> String? {
+        return "id"
+    }
 }

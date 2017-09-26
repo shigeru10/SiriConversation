@@ -7,6 +7,7 @@
 //
 
 import UIKit
+import RealmSwift
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -16,7 +17,67 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplicationLaunchOptionsKey: Any]?) -> Bool {
         // Override point for customization after application launch.
+
+        csvToArray()
+        
         return true
+    }
+    
+    func csvToArray() {
+        if let csvPath = Bundle.main.path(forResource: "words", ofType: "csv") {
+            do {
+                let data = loadCsvDataFromPath(csvPath)
+                let realm = try Realm()
+                
+                guard let _data = data else { return }
+                guard realm.objects(Word.self).count == 0 else { return }
+                
+                let words = realm.objects(Word.self)
+                words.forEach { word in
+                    do {
+                        try realm.write {
+                            realm.delete(word)
+                        }
+                    } catch {
+                        fatalError("Could not delete word data")
+                    }
+                }
+                
+                for datum in _data {
+                    let word = Word()
+                    word.id = Int(datum["id"]!)!
+                    word.answer = datum["answer"]!
+                    word.question = datum["question"]!
+                    
+                    try realm.write() {
+                        realm.add(word)
+                    }
+                }
+            } catch {
+                fatalError("Could not get csvArr")
+            }
+        }
+    }
+    
+    func loadCsvDataFromPath(_ path:String) -> [[String:String]]? {
+        guard let data:Data = try? Data(contentsOf: URL(fileURLWithPath: path)), let csv:String = String(data: data, encoding: String.Encoding.utf8) else { return nil }
+        
+        var dics:[[String:String]] = []
+        var columns:[String] = []
+        csv.enumerateLines(invoking: { (line, stop) -> () in
+            let elements:[String] = line.components(separatedBy: ",")
+            if columns == [] {
+                columns = elements
+            } else {
+                var dic:[String:String] = [:]
+                for object in elements.enumerated() {
+                    dic[columns[object.offset]] = object.element
+                }
+                dics.append(dic)
+            }
+        })
+        
+        return dics
     }
 
     func applicationWillResignActive(_ application: UIApplication) {
