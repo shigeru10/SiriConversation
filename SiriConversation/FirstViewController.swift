@@ -9,6 +9,7 @@
 import Foundation
 import UIKit
 import Speech
+import RealmSwift
 
 class FirstViewController: UIViewController, SFSpeechRecognizerDelegate {
     
@@ -16,6 +17,9 @@ class FirstViewController: UIViewController, SFSpeechRecognizerDelegate {
     private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
     private var recognitionTask: SFSpeechRecognitionTask?
     private let audioEngine = AVAudioEngine()
+    
+    let realm = try! Realm()
+    var words: [Word]? = nil
     
     @IBOutlet weak var questionLabel: UILabel!
     @IBOutlet weak var answerLabel: UILabel!
@@ -26,12 +30,18 @@ class FirstViewController: UIViewController, SFSpeechRecognizerDelegate {
     override func viewDidLoad() {
         super.viewDidLoad()
         // Do any additional setup after loading the view, typically from a nib.
-        recordButton.isEnabled = false
+        
+        var word = realm.objects(Word.self).first
+        
         correctAnswerLabel.isHidden = true
         answerImage.isHidden = true
         
         speechRecognizer.delegate = self
-        correctAnswerLabel.text = "This is a pen."
+        answerLabel.text = ""
+        
+        questionLabel.text = word?.question
+        correctAnswerLabel.text = word?.answer
+        
         recordButton.setTitle("Start Recording", for: [])
     }
     
@@ -86,8 +96,8 @@ class FirstViewController: UIViewController, SFSpeechRecognizerDelegate {
             guard let strongSelf = self else { return }
             var isFinal = false
             
-            if let result = result {
-                strongSelf.answerLabel.text = result.bestTranscription.formattedString + "."
+            if let _result = result {
+                strongSelf.answerLabel.text = _result.bestTranscription.formattedString + "."
                 
                 if strongSelf.answerLabel.text == strongSelf.correctAnswerLabel.text {
                     strongSelf.audioEngine.stop()
@@ -98,9 +108,15 @@ class FirstViewController: UIViewController, SFSpeechRecognizerDelegate {
                     strongSelf.answerImage.isHidden = false
                     strongSelf.correctAnswerLabel.isHidden = false
                 }
-                isFinal = result.isFinal
-                
+                isFinal = _result.isFinal
                 if isFinal && strongSelf.answerImage.isHidden {
+                    strongSelf.answerImage.image = UIImage(named: "incorrect")
+                    strongSelf.answerImage.isHidden = false
+                    strongSelf.correctAnswerLabel.isHidden = false
+                }
+            } else {
+                if strongSelf.answerImage.isHidden {
+                    strongSelf.answerLabel.text = "No answer..."
                     strongSelf.answerImage.image = UIImage(named: "incorrect")
                     strongSelf.answerImage.isHidden = false
                     strongSelf.correctAnswerLabel.isHidden = false
@@ -115,7 +131,7 @@ class FirstViewController: UIViewController, SFSpeechRecognizerDelegate {
                 strongSelf.recognitionTask = nil
                 
                 strongSelf.recordButton.isEnabled = true
-                strongSelf.recordButton.setTitle("Start Recording", for: [])
+                strongSelf.recordButton.setTitle("Start next question", for: [])
             }
         }
         
@@ -127,7 +143,7 @@ class FirstViewController: UIViewController, SFSpeechRecognizerDelegate {
         audioEngine.prepare()
         try audioEngine.start()
         
-        answerLabel.text = "(Go ahead, I'm listening)"
+        answerLabel.text = "Let's talk!!"
     }
     
     func speechRecognizer(_ speechRecognizer: SFSpeechRecognizer, availabilityDidChange available: Bool) {
@@ -141,6 +157,7 @@ class FirstViewController: UIViewController, SFSpeechRecognizerDelegate {
     }
     
     @IBAction func recordButtonTapped(_ sender: Any) {
+        recordButton.setTitle("Stop", for: .normal)
         if audioEngine.isRunning {
             audioEngine.stop()
             recognitionRequest?.endAudio()
@@ -148,7 +165,6 @@ class FirstViewController: UIViewController, SFSpeechRecognizerDelegate {
             recordButton.setTitle("Stopping", for: .disabled)
         } else {
             do {
-                recordButton.setTitle("Stop", for: .disabled)
                 try startRecording()
             } catch {
                 fatalError("uneble start recording")
